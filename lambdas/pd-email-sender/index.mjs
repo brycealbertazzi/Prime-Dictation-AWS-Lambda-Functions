@@ -103,8 +103,8 @@ export const handler = async (event) => {
         });
       }
 
-      const html = renderEmailHtml({ messageText, links: [], showLinkButtons: false });
-      const text = renderEmailText({ messageText, links: [] });
+      const html = renderEmailHtml({ messageText, links: [], hasAttachments: true });
+      const text = renderEmailText({ messageText, links: [], hasAttachments: true });
 
       const raw = buildMimeMixed({
         from: FROM_EMAIL,
@@ -136,8 +136,8 @@ export const handler = async (event) => {
         })
       );
 
-      const html = renderEmailHtml({ messageText, links: responseLinks, showLinkButtons: true });
-      const text = renderEmailText({ messageText, links: responseLinks });
+      const html = renderEmailHtml({ messageText, links: responseLinks, hasAttachments: false });
+      const text = renderEmailText({ messageText, links: responseLinks, hasAttachments: false });
 
       sendCommand = new SendEmailCommand({
         FromEmailAddress: FROM_EMAIL,
@@ -224,8 +224,7 @@ function fitsSesLimitWhenBase64(metaList) {
 
 // ---------- Email rendering ----------
 
-function renderEmailHtml({ messageText, links, showLinkButtons }) {
-  // Simple, clean, mobile-friendly HTML without external CSS
+function renderEmailHtml({ messageText, links, hasAttachments }) {
   const linkBlocks = (links || []).map(l => {
     const name = escapeHtml(l.label || "Download");
     const url = escapeHtml(l.url);
@@ -234,20 +233,22 @@ function renderEmailHtml({ messageText, links, showLinkButtons }) {
       <tr>
         <td style="padding:8px 0;">
           <div style="font-size:14px;color:#444;margin-bottom:6px;"><strong>${name}</strong> — ${file}</div>
-          ${showLinkButtons ? `
           <a href="${url}" style="
             display:inline-block;padding:10px 14px;text-decoration:none;
             background:#2563eb;color:#fff;border-radius:8px;font-size:14px;
-          " target="_blank" rel="noopener">Download</a>` : ``}
+          " target="_blank" rel="noopener">Download</a>
         </td>
       </tr>`;
   }).join("");
 
+  const footer = hasAttachments
+    ? `<p style="margin:10px 0 0 0;font-size:14px;color:#6b7280;">Files are attached to this email.</p>`
+    : `<p style="margin:10px 0 0 0;font-size:12px;color:#6b7280;">If a link expires, resend from the app to generate a fresh one.</p>`;
+
   return `<!doctype html>
 <html>
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Prime Dictation</title>
 </head>
 <body style="margin:0;padding:0;background:#f6f8fc;">
@@ -258,16 +259,13 @@ function renderEmailHtml({ messageText, links, showLinkButtons }) {
           <tr><td>
             <h1 style="margin:0 0 10px 0;font-size:20px;line-height:1.3;color:#111827;">Your Prime Dictation files</h1>
             <p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#374151;">${escapeHtml(messageText)}</p>
+
             ${links?.length ? `
               <table role="presentation" width="100%" style="margin-top:8px;">
                 ${linkBlocks}
-              </table>` : `
-              <p style="margin:10px 0 0 0;font-size:14px;color:#6b7280;">
-                Files are attached to this email.
-              </p>`}
-            <p style="margin:20px 0 0 0;font-size:12px;color:#6b7280;">
-              If a link expires, resend from the app to generate a fresh one.
-            </p>
+              </table>` : ``}
+
+            ${footer}
           </td></tr>
         </table>
         <div style="margin-top:12px;font-size:11px;color:#9ca3af;">© ${new Date().getFullYear()} Prime Dictation</div>
@@ -278,21 +276,17 @@ function renderEmailHtml({ messageText, links, showLinkButtons }) {
 </html>`;
 }
 
-function renderEmailText({ messageText, links }) {
-  const lines = [messageText, "", "Downloads:"];
+function renderEmailText({ messageText, links, hasAttachments }) {
+  const lines = [messageText, ""];
   if (links?.length) {
+    lines.push("Downloads:");
     for (const l of links) lines.push(`- ${l.label}: ${l.url}`);
-  } else {
-    lines.push("- Files are attached to this email.");
+    lines.push(""); // spacing
+    lines.push("If a link expires, resend from the app to generate a fresh one.");
+  } else if (hasAttachments) {
+    lines.push("Files are attached to this email.");
   }
-  lines.push("", "If a link expires, re-send from the app to generate a fresh one.");
   return lines.join("\n");
-}
-
-function escapeHtml(s) {
-  return String(s)
-    .replace(/&/g, "&amp;").replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
 // ---------- MIME builder (for attachments) ----------
