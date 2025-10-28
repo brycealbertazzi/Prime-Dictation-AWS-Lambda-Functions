@@ -13,7 +13,12 @@ import { buildHtml, buildText } from "../../shared/src/index.js";
  * - RECORDINGS_PREFIX = recordings/
  * - TRANSCRIPTIONS_PREFIX = transcriptions/
  * - DOWNLOAD_URL_TTL_SECONDS = 86400
+ *
+ * Optional:
+ * - S3_REGION (defaults to SES_REGION)
  */
+
+// --- env & clients ---
 
 const {
   SES_REGION = "us-west-2",
@@ -21,11 +26,23 @@ const {
   BUCKET_NAME,
   RECORDINGS_PREFIX = "recordings/",
   TRANSCRIPTIONS_PREFIX = "transcriptions/",
-  DOWNLOAD_URL_TTL_SECONDS = "86400"
+  DOWNLOAD_URL_TTL_SECONDS = "86400",
+  S3_REGION
 } = process.env;
 
+if (!FROM_EMAIL) throw new Error("Missing env FROM_EMAIL");
+if (!BUCKET_NAME) throw new Error("Missing env BUCKET_NAME");
+
 const ses = new SESv2Client({ region: SES_REGION });
-const s3 = new S3Client({});
+const s3 = new S3Client({ region: S3_REGION || SES_REGION });
+
+// Pin the SES identity to your DOMAIN so IAM evaluates the right resource.
+// If you ever change account/region/domain, update this builder.
+const ACCOUNT_ID = "938822376704";
+const SENDER_DOMAIN = FROM_EMAIL.split("@")[1] || "primedictation.com";
+const FROM_IDENTITY_ARN = `arn:aws:ses:${SES_REGION}:${ACCOUNT_ID}:identity/${SENDER_DOMAIN}`;
+
+// --- handler ---
 
 /**
  * Event schema (example):
@@ -43,6 +60,11 @@ export const handler = async (event) => {
     const subject = event?.subject ?? "Your Prime Dictation files";
     const messageText = event?.messageText ?? "Your files are ready.";
 
+    // Guard: ensure FROM is your domain (avoids gmail-from accidents)
+    if (!FROM_EMAIL.endsWith(`@${SENDER_DOMAIN}`)) {
+      throw new Error(`FROM_EMAIL must end with @${SENDER_DOMAIN}`);
+    }
+
     const links = [];
     if (event?.recordingKey) {
       links.push(await presignIfExists(event.recordingKey, "Recording"));
@@ -54,9 +76,9 @@ export const handler = async (event) => {
     const html = buildHtml(messageText, links);
     const text = buildText(messageText, links);
 
-    console.log({ from: process.env.FROM_EMAIL, to: event.toEmail });
-    const cmd = new SendEmailCommand({
-      FromEmailAddress: FROM_EMAIL,
+    const params = {
+      FromEmailAddress: FROM_EMAIL,                      // visible From
+      FromEmailAddressIdentityArn: FROM_IDENTITY_ARN,    // force SES to use domain identity
       Destination: { ToAddresses: [toEmail] },
       Content: {
         Simple: {
@@ -67,9 +89,16 @@ export const handler = async (event) => {
           }
         }
       }
+      // Do NOT set ConfigurationSetName unless you actually use one.
+    };
+
+    console.log("SES send preview", {
+      from: params.FromEmailAddress,
+      identityArn: params.FromEmailAddressIdentityArn,
+      to: params.Destination.ToAddresses
     });
 
-    const resp = await ses.send(cmd);
+    const resp = await ses.send(new SendEmailCommand(params));
     return ok({ messageId: resp?.MessageId, toEmail, links });
 
   } catch (err) {
