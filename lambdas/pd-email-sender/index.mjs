@@ -54,6 +54,7 @@ export const handler = async (event) => {
     const html = buildHtml(messageText, links);
     const text = buildText(messageText, links);
 
+    console.log({ from: process.env.FROM_EMAIL, to: event.toEmail });
     const cmd = new SendEmailCommand({
       FromEmailAddress: FROM_EMAIL,
       Destination: { ToAddresses: [toEmail] },
