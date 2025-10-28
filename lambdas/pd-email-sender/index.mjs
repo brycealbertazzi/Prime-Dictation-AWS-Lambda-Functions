@@ -48,7 +48,6 @@ const MIME_OVERHEAD_BYTES = 48 * 1024;                               // conserva
  * {
  *   "toEmail": "tester@example.com",
  *   "subject": "Your Prime Dictation files",
- *   "messageText": "Here are your files.",
  *   "recordingKey": "recordings/test-audio.m4a",
  *   "transcriptionKey": "transcriptions/test.txt"
  * }
@@ -57,7 +56,6 @@ export const handler = async (event) => {
   try {
     const toEmail = reqString(event?.toEmail, "toEmail");
     const subject = event?.subject ?? "Your Prime Dictation files";
-    const messageText = event?.messageText ?? "Here are your files.";
 
     // Gather candidate assets (keys may be optional)
     const items = [];
@@ -103,8 +101,8 @@ export const handler = async (event) => {
         });
       }
 
-      const html = renderEmailHtml({ messageText, links: [], hasAttachments: true });
-      const text = renderEmailText({ messageText, links: [], hasAttachments: true });
+      const html = renderEmailHtml({ links: [], hasAttachments: true });
+      const text = renderEmailText({ links: [], hasAttachments: true });
 
       const raw = buildMimeMixed({
         from: FROM_EMAIL,
@@ -136,8 +134,8 @@ export const handler = async (event) => {
         })
       );
 
-      const html = renderEmailHtml({ messageText, links: responseLinks, hasAttachments: false });
-      const text = renderEmailText({ messageText, links: responseLinks, hasAttachments: false });
+      const html = renderEmailHtml({ links: responseLinks, hasAttachments: false });
+      const text = renderEmailText({ links: responseLinks, hasAttachments: false });
 
       sendCommand = new SendEmailCommand({
         FromEmailAddress: FROM_EMAIL,
@@ -224,7 +222,7 @@ function fitsSesLimitWhenBase64(metaList) {
 
 // ---------- Email rendering ----------
 
-function renderEmailHtml({ messageText, links, hasAttachments }) {
+function renderEmailHtml({ links, hasAttachments }) {
   const linkBlocks = (links || []).map(l => {
     const name = escapeHtml(l.label || "Download");
     const url = escapeHtml(l.url);
@@ -258,7 +256,6 @@ function renderEmailHtml({ messageText, links, hasAttachments }) {
         <table role="presentation" width="100%" style="max-width:560px;background:#fff;border-radius:14px;padding:24px;border:1px solid #e5e7eb;">
           <tr><td>
             <h1 style="margin:0 0 10px 0;font-size:20px;line-height:1.3;color:#111827;">Your Prime Dictation files</h1>
-            <p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#374151;">${escapeHtml(messageText)}</p>
 
             ${links?.length ? `
               <table role="presentation" width="100%" style="margin-top:8px;">
@@ -276,8 +273,8 @@ function renderEmailHtml({ messageText, links, hasAttachments }) {
 </html>`;
 }
 
-function renderEmailText({ messageText, links, hasAttachments }) {
-  const lines = [messageText, ""];
+function renderEmailText({ links, hasAttachments }) {
+  const lines = [""];
   if (links?.length) {
     lines.push("Downloads:");
     for (const l of links) lines.push(`- ${l.label}: ${l.url}`);
