@@ -1,0 +1,13 @@
+{
+  "name": "pd-email-sender",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.679.0",
+    "@aws-sdk/client-sesv2": "^3.679.0",
+    "@aws-sdk/s3-request-presigner": "^3.679.0",
+    "pd-shared": "file:../../shared.tgz"
+  }
+}

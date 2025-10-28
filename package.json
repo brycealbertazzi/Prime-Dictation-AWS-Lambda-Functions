@@ -1,0 +1,13 @@
+{
+  "name": "prime-dictation-aws-lambda-functions",
+  "private": true,
+  "workspaces": [
+    "shared",
+    "lambdas/*"
+  ],
+  "scripts": {
+    "zip:email": "cd lambdas/pd-email-sender && npm ci && zip -r ../../pd-email-sender.zip index.mjs package.json node_modules",
+    "deploy:email": "aws lambda update-function-code --function-name pd-email-sender --zip-file fileb://pd-email-sender.zip",
+    "build:all": "npm run -w shared build || true"
+  }
+}
