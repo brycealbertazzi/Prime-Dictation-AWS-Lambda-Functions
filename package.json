@@ -6,8 +6,8 @@
     "lambdas/*"
   ],
   "scripts": {
-    "build:email": "esbuild lambdas/pd-email-sender/index.mjs --bundle --minify --platform=node --target=node22 --format=esm --external:aws-crt --outfile=dist/pd-email-sender/index.mjs",
-    "zip:email": "npm run build:email && cd dist/pd-email-sender && rm -f ../../pd-email-sender.zip && zip -r ../../pd-email-sender.zip index.mjs",
+    "build:email": "esbuild lambdas/pd-email-sender/index.mjs --bundle --minify --platform=node --target=node22 --format=cjs --external:aws-crt --outfile=dist/pd-email-sender/index.js",
+    "zip:email": "npm run build:email && cd dist/pd-email-sender && rm -f ../../pd-email-sender.zip && zip -r ../../pd-email-sender.zip index.js",
     "deploy:email": "aws lambda update-function-code --region us-west-2 --function-name pd-email-sender --zip-file fileb://pd-email-sender.zip"
   },
   "devDependencies": {
