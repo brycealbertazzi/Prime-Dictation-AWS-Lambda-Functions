@@ -289,6 +289,15 @@ function renderEmailText({ messageText, links, hasAttachments }) {
   return lines.join("\n");
 }
 
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 // ---------- MIME builder (for attachments) ----------
 
 function buildMimeMixed({ from, to, subject, text, html, attachments }) {
