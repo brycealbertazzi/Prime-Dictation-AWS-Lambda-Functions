@@ -1,14 +1,15 @@
 {
   "name": "prime-dictation-aws-lambda-functions",
   "private": true,
-  "workspaces": [
-    "shared",
-    "lambdas/*"
-  ],
+  "workspaces": ["lambdas/*"],
   "scripts": {
     "build:email": "esbuild lambdas/pd-email-sender/index.mjs --bundle --minify --platform=node --target=node22 --format=cjs --external:aws-crt --outfile=dist/pd-email-sender/index.js",
     "zip:email": "npm run build:email && cd dist/pd-email-sender && rm -f ../../pd-email-sender.zip && zip -r ../../pd-email-sender.zip index.js",
-    "deploy:email": "aws lambda update-function-code --region us-west-2 --function-name pd-email-sender --zip-file fileb://pd-email-sender.zip"
+    "deploy:email": "aws lambda update-function-code --region us-west-2 --function-name pd-email-sender --zip-file fileb://pd-email-sender.zip",
+
+    "build:signer": "esbuild lambdas/pd-presign-upload/index.mjs --bundle --minify --platform=node --target=node22 --format=cjs --external:aws-crt --outfile=dist/pd-presign-upload/index.js",
+    "zip:signer": "npm run build:signer && cd dist/pd-presign-upload && rm -f ../../pd-presign-upload.zip && zip -r ../../pd-presign-upload.zip index.js",
+    "deploy:signer": "aws lambda update-function-code --region us-west-2 --function-name pd-presign-upload --zip-file fileb://pd-presign-upload.zip"
   },
   "devDependencies": {
     "@aws-sdk/client-s3": "^3.918.0",

@@ -55,6 +55,7 @@ const MIME_OVERHEAD_BYTES = 48 * 1024;                               // conserva
 export const handler = async (event) => {
   try {
     const toEmail = reqString(event?.toEmail, "toEmail");
+    console.log("index.mjs: ", toEmail)
     const subject = event?.subject ?? "Your Prime Dictation files";
 
     // Gather candidate assets (keys may be optional)
