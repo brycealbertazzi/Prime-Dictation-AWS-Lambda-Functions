@@ -56,7 +56,6 @@ export const handler = async (event) => {
   try {
     const payload = JSON.parse(event?.body)
     const toEmail = payload?.toEmail
-    console.log("index.mjs: ", toEmail)
     const subject = "Your Prime Dictation files";
 
     // Gather candidate assets (keys may be optional)
@@ -173,11 +172,6 @@ export const handler = async (event) => {
 };
 
 // ---------- helpers ----------
-
-function reqString(val, field) {
-  if (typeof val !== "string" || !val.trim()) throw new Error(`Missing or invalid field: ${field}`);
-  return val.trim();
-}
 
 function validateKeyPrefix(key) {
   if (!key.startsWith(RECORDINGS_PREFIX) && !key.startsWith(TRANSCRIPTIONS_PREFIX)) {
