@@ -81,9 +81,13 @@ export const handler = async (event) => {
     const recordingMeta = meta.find(m => m.label === "Recording");
     const transcriptionMeta = meta.find(m => m.label === "Transcription");
 
+    if (!recordingMeta) return
+
+    const sumOfFiles = transcriptionMeta?.size ? recordingMeta.size + transcriptionMeta.size : recordingMeta.size
+
     const wantAttachments =
       recordingMeta &&
-      recordingMeta.size + transcriptionMeta.size <= ATTACH_LIMIT_MB * MB &&
+      sumOfFiles <= ATTACH_LIMIT_MB * MB &&
       fitsSesLimitWhenBase64(meta);
 
     let responseLinks = [];
