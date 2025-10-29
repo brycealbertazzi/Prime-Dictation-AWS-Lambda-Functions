@@ -54,16 +54,17 @@ const MIME_OVERHEAD_BYTES = 48 * 1024;                               // conserva
  */
 export const handler = async (event) => {
   try {
-    const toEmail = reqString(event?.toEmail, "toEmail");
+    const payload = JSON.parse(event?.body)
+    const toEmail = payload?.toEmail
     console.log("index.mjs: ", toEmail)
-    const subject = event?.subject ?? "Your Prime Dictation files";
+    const subject = "Your Prime Dictation files";
 
     // Gather candidate assets (keys may be optional)
     const items = [];
-    if (event?.recordingKey)
-      items.push({ key: event.recordingKey, label: "Recording" });
-    if (event?.transcriptionKey)
-      items.push({ key: event.transcriptionKey, label: "Transcription" });
+    if (payload?.recordingKey)
+      items.push({ key: payload.recordingKey, label: "Recording" });
+    if (payload?.transcriptionKey)
+      items.push({ key: payload.transcriptionKey, label: "Transcription" });
 
     // Validate keys & check existence/size
     const meta = await Promise.all(items.map(async ({ key, label }) => {
