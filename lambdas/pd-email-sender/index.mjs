@@ -83,7 +83,7 @@ export const handler = async (event) => {
 
     const wantAttachments =
       recordingMeta &&
-      recordingMeta.size <= ATTACH_LIMIT_MB * MB &&
+      recordingMeta.size + transcriptionMeta.size <= ATTACH_LIMIT_MB * MB &&
       fitsSesLimitWhenBase64(meta);
 
     let responseLinks = [];
