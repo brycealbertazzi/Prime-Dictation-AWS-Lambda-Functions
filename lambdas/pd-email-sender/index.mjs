@@ -159,13 +159,6 @@ export const handler = async (event) => {
       });
     }
 
-    console.log("SES send preview", {
-      from: FROM_EMAIL,
-      identityArn: FROM_IDENTITY_ARN,
-      to: [toEmail],
-      mode: wantAttachments ? "attachments" : "links"
-    });
-
     const resp = await ses.send(sendCommand);
     return ok({ messageId: resp?.MessageId, toEmail, links: responseLinks });
 
