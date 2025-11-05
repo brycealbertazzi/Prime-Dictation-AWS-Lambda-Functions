@@ -27,17 +27,15 @@ if (!FROM_EMAIL) throw new Error("Missing env FROM_EMAIL");
 if (!BUCKET_NAME) throw new Error("Missing env BUCKET_NAME");
 
 const ses = new SESv2Client({ region: REGION });
-const s3 = new S3Client({ region: REGION });
+const s3  = new S3Client({ region: REGION });
 
-// Optional: pin identity ARN (helpful with cross-account conditions)
 const ACCOUNT_ID = process.env.SES_ACCOUNT_ID; // optional
 const SENDER_DOMAIN = FROM_EMAIL.split("@")[1] || "example.com";
 const FROM_IDENTITY_ARN = ACCOUNT_ID ? `arn:aws:ses:${REGION}:${ACCOUNT_ID}:identity/${SENDER_DOMAIN}` : undefined;
 
-// Limits
 const MB = 1024 * 1024;
 const ATTACH_LIMIT_MB = parseFloat(ATTACHMENT_MAX_MB) || 9;
-const SES_MAX_BYTES = 10 * MB;        // SES ~10MB cap after base64
+const SES_MAX_BYTES = 10 * MB;
 const MIME_OVERHEAD_BYTES = 48 * 1024;
 
 export const handler = async (event) => {
@@ -47,17 +45,16 @@ export const handler = async (event) => {
   }
 
   try {
-    const user = await verifyFirebase(event); // decoded.uid, etc.
+    const user = await verifyFirebase(event);
 
     const payload = JSON.parse(event.body || "{}");
     const toEmail = (payload.toEmail || "").trim();
     if (!toEmail) return resp(400, { error: "Missing toEmail" });
 
     const items = [];
-    if (payload.recordingKey) items.push({ key: String(payload.recordingKey), label: "Recording" });
+    if (payload.recordingKey)     items.push({ key: String(payload.recordingKey), label: "Recording" });
     if (payload.transcriptionKey) items.push({ key: String(payload.transcriptionKey), label: "Transcription" });
 
-    // Validate keys and (optionally) enforce tenancy
     const meta = await Promise.all(items.map(async ({ key, label }) => {
       validateKeyPrefix(key, user.uid);
       const head = await s3.send(new HeadObjectCommand({ Bucket: BUCKET_NAME, Key: key }));
@@ -80,7 +77,6 @@ export const handler = async (event) => {
       fitsSesLimitWhenBase64(meta);
 
     if (wantAttachments) {
-      // Build Raw MIME with attachments
       const parts = [];
       for (const m of meta) {
         const data = await getObjectBuffer(m.key);
@@ -88,9 +84,7 @@ export const handler = async (event) => {
       }
       const html = renderEmailHtml({ links: [], hasAttachments: true });
       const text = renderEmailText({ links: [], hasAttachments: true });
-      const raw = buildMimeMixed({
-        from: FROM_EMAIL, to: toEmail, subject, text, html, attachments: parts,
-      });
+      const raw  = buildMimeMixed({ from: FROM_EMAIL, to: toEmail, subject, text, html, attachments: parts });
 
       sendCommand = new SendEmailCommand({
         FromEmailAddress: FROM_EMAIL,
@@ -101,11 +95,13 @@ export const handler = async (event) => {
       });
 
     } else {
-      // Send signed links
       responseLinks = await Promise.all(
         meta.map(async ({ key, label }) => {
-          const url = await getSignedUrl(s3, new GetObjectCommand({ Bucket: BUCKET_NAME, Key: key }),
-            { expiresIn: parseInt(DOWNLOAD_URL_TTL_SECONDS, 10) || 86400 });
+          const url = await getSignedUrl(
+            s3,
+            new GetObjectCommand({ Bucket: BUCKET_NAME, Key: key }),
+            { expiresIn: parseInt(DOWNLOAD_URL_TTL_SECONDS, 10) || 86400 }
+          );
           return { label, key, url };
         })
       );
@@ -140,30 +136,21 @@ export const handler = async (event) => {
 };
 
 // ---------- validation / s3 helpers ----------
-
 function validateKeyPrefix(key, uid) {
-  // If you enabled UID scoping on client + presign Lambda, enforce it here too:
   if (process.env.REQUIRE_UID_PREFIX === "1") {
     const expected = `users/${uid}/`;
     if (!key.startsWith(expected)) {
-      throw Object.assign(new Error(`Object key must start with '${expected}'`), { statusCode: 403 });
+      const e = new Error(`Object key must start with '${expected}'`); e.statusCode = 403; throw e;
     }
     return;
   }
-  // Otherwise fall back to static prefixes
   if (!key.startsWith(RECORDINGS_PREFIX) && !key.startsWith(TRANSCRIPTIONS_PREFIX)) {
-    throw Object.assign(
-      new Error(`Object key must start with '${RECORDINGS_PREFIX}' or '${TRANSCRIPTIONS_PREFIX}': ${key}`),
-      { statusCode: 400 }
-    );
+    const e = new Error(`Object key must start with '${RECORDINGS_PREFIX}' or '${TRANSCRIPTIONS_PREFIX}': ${key}`);
+    e.statusCode = 400; throw e;
   }
 }
 
-function filenameFromKey(key) {
-  const i = key.lastIndexOf("/");
-  return i >= 0 ? key.slice(i + 1) : key;
-}
-
+function filenameFromKey(key) { const i = key.lastIndexOf("/"); return i >= 0 ? key.slice(i + 1) : key; }
 function inferContentType(key) {
   const lower = key.toLowerCase();
   if (lower.endsWith(".m4a")) return "audio/mp4";
@@ -173,27 +160,22 @@ function inferContentType(key) {
   if (lower.endsWith(".json")) return "application/json";
   return "application/octet-stream";
 }
-
 async function getObjectBuffer(key) {
   const out = await s3.send(new GetObjectCommand({ Bucket: BUCKET_NAME, Key: key }));
   const bytes = await out.Body.transformToByteArray();
   return Buffer.from(bytes);
 }
-
 function fitsSesLimitWhenBase64(metaList) {
-  let totalBase64Bytes = 0;
-  for (const m of metaList) {
-    totalBase64Bytes += Math.ceil(m.size / 3) * 4; // 4/3 expansion
-  }
-  const projected = totalBase64Bytes + MIME_OVERHEAD_BYTES;
-  return projected < SES_MAX_BYTES;
+  let total = 0;
+  for (const m of metaList) total += Math.ceil(m.size / 3) * 4; // 4/3 expansion
+  return (total + MIME_OVERHEAD_BYTES) < SES_MAX_BYTES;
 }
 
-// ---------- renderers / MIME builder (unchanged from your version) ----------
+// ---------- renderers / MIME builder ----------
 function renderEmailHtml({ links, hasAttachments }) {
   const linkBlocks = (links || []).map(l => {
     const name = escapeHtml(l.label || "Download");
-    const url = escapeHtml(l.url);
+    const url  = escapeHtml(l.url);
     const file = escapeHtml(filenameFromKey(l.key));
     return `
       <tr>
@@ -225,7 +207,6 @@ function renderEmailHtml({ links, hasAttachments }) {
   </table>
 </body></html>`;
 }
-
 function renderEmailText({ links, hasAttachments }) {
   const lines = [""];
   if (links?.length) {
@@ -238,14 +219,11 @@ function renderEmailText({ links, hasAttachments }) {
   }
   return lines.join("\n");
 }
-
-function escapeHtml(s) {
-  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");
-}
+function escapeHtml(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;"); }
 
 function buildMimeMixed({ from, to, subject, text, html, attachments }) {
   const boundaryMixed = "mixed_" + randomId();
-  const boundaryAlt = "alt_" + randomId();
+  const boundaryAlt   = "alt_" + randomId();
 
   const headers = [
     `From: ${from}`,
@@ -275,14 +253,11 @@ function buildMimeMixed({ from, to, subject, text, html, attachments }) {
 
   const closing = `--${boundaryMixed}--`;
   const raw = headers.join("\r\n") + "\r\n\r\n" + altSection + parts + closing;
-  return new TextEncoder().encode(raw); // Uint8Array for SES v2 Raw
+  return new TextEncoder().encode(raw);
 }
 
 function randomId() { return Math.random().toString(36).slice(2, 10); }
-function chunk76(str) {
-  const out = []; for (let i = 0; i < str.length; i += 76) out.push(str.slice(i, i + 76));
-  return out.join("\r\n");
-}
+function chunk76(str) { const out = []; for (let i = 0; i < str.length; i += 76) out.push(str.slice(i, i + 76)); return out.join("\r\n"); }
 
 // ---------- HTTP ----------
 function resp(statusCode, body) {
