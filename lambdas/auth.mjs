@@ -5,7 +5,7 @@ import { getAuth } from "firebase-admin/auth";
 let inited = false;
 function initFirebase() {
   if (!inited) {
-    initializeApp({ projectId: process.env.FIREBASE_PROJECT_ID });
+    initializeApp(); // ← no credential object
     inited = true;
   }
 }
@@ -57,7 +57,7 @@ export async function verifyFirebase(event) {
 
   try {
     // Set to false if you don’t need revocation checking
-    return await getAuth().verifyIdToken(token, true);
+    return await getAuth().verifyIdToken(token);
   } catch (err) {
     console.warn("Auth: verifyIdToken failed:", err?.message);
     const e = new Error("Invalid or expired token"); e.statusCode = 401; throw e;
