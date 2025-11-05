@@ -1,27 +1,31 @@
 // Lambda: pd-email-sender (Node.js 20/22, ESM)
-import admin from "firebase-admin";
 import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
 import { S3Client, GetObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { initializeApp } from "firebase-admin/app";
+import { getAuth } from "firebase-admin/auth";
 
 // ---------- Auth ----------
-let adminInited = false;
+let inited = false;
 function initFirebase() {
-  if (!adminInited) {
-    admin.initializeApp({ projectId: process.env.FIREBASE_PROJECT_ID });
-    adminInited = true;
+  if (!inited) {
+    initializeApp({ projectId: process.env.FIREBASE_PROJECT_ID });
+    inited = true;
   }
 }
+
 async function verifyFirebase(event) {
   initFirebase();
   const h = event.headers || {};
   const authz = h.authorization || h.Authorization || "";
-  const m = authz.match(/^Bearer\s+(.+)$/i);
-  if (!m) throw Object.assign(new Error("Missing bearer token"), { statusCode: 401 });
+  const m = authz.match(/^Bearer\\s+(.+)$/i);
+  if (!m) {
+    const e = new Error("Missing bearer token"); e.statusCode = 401; throw e;
+  }
   try {
-    return await admin.auth().verifyIdToken(m[1], true);
+    return await getAuth().verifyIdToken(m[1], true);
   } catch {
-    throw Object.assign(new Error("Invalid or expired token"), { statusCode: 401 });
+    const e = new Error("Invalid or expired token"); e.statusCode = 401; throw e;
   }
 }
 

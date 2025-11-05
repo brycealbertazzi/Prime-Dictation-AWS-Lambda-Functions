@@ -1,30 +1,30 @@
 // Lambda: pd-presign (Node.js 20/22, ESM)
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import admin from "firebase-admin";
+import { initializeApp } from "firebase-admin/app";
+import { getAuth } from "firebase-admin/auth";
 
 // ---------- Auth (Firebase ID token) ----------
-let adminInited = false;
+let inited = false;
 function initFirebase() {
-  if (!adminInited) {
-    // No service account required just for verifyIdToken; projectId helps logs
-    admin.initializeApp({ projectId: process.env.FIREBASE_PROJECT_ID });
-    adminInited = true;
+  if (!inited) {
+    initializeApp({ projectId: process.env.FIREBASE_PROJECT_ID });
+    inited = true;
   }
 }
 
 async function verifyFirebase(event) {
   initFirebase();
-  // Accept both header casings
   const h = event.headers || {};
   const authz = h.authorization || h.Authorization || "";
-  const m = authz.match(/^Bearer\s+(.+)$/i);
-  if (!m) throw Object.assign(new Error("Missing bearer token"), { statusCode: 401 });
+  const m = authz.match(/^Bearer\\s+(.+)$/i);
+  if (!m) {
+    const e = new Error("Missing bearer token"); e.statusCode = 401; throw e;
+  }
   try {
-    // checkRevoked=true: stronger semantics
-    return await admin.auth().verifyIdToken(m[1], true);
+    return await getAuth().verifyIdToken(m[1], true);
   } catch {
-    throw Object.assign(new Error("Invalid or expired token"), { statusCode: 401 });
+    const e = new Error("Invalid or expired token"); e.statusCode = 401; throw e;
   }
 }
 
