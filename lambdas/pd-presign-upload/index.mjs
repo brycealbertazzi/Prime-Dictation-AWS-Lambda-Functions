@@ -1,17 +1,7 @@
 // Lambda: pd-presign (Node.js 20/22, ESM)
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { initializeApp } from "firebase-admin/app";
 import { verifyFirebase } from "../auth.mjs";
-
-// ---------- Auth (Firebase ID token) ----------
-let inited = false;
-function initFirebase() {
-  if (!inited) {
-    initializeApp({ projectId: process.env.FIREBASE_PROJECT_ID });
-    inited = true;
-  }
-}
 
 // ---------- CORS ----------
 const ALLOW_ORIGIN = process.env.CORS_ALLOW_ORIGIN || "*";
