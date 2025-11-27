@@ -96,12 +96,23 @@ export const handler = async (event) => {
 
     } else {
       responseLinks = await Promise.all(
-        meta.map(async ({ key, label }) => {
+        meta.map(async ({ key, label, contentType }) => {
+          const filename = filenameFromKey(key);
+
           const url = await getSignedUrl(
             s3,
-            new GetObjectCommand({ Bucket: BUCKET_NAME, Key: key }),
+            new GetObjectCommand({
+              Bucket: BUCKET_NAME,
+              Key: key,
+              // 👇 Force "download" behavior in browsers (esp. Safari)
+              ResponseContentDisposition: `attachment; filename="${filename}"`,
+              ResponseContentType: 'application/octet-stream',
+              // If you prefer to keep the real MIME type instead:
+              // ResponseContentType: contentType,
+            }),
             { expiresIn: parseInt(DOWNLOAD_URL_TTL_SECONDS, 10) || 86400 }
           );
+
           return { label, key, url };
         })
       );
