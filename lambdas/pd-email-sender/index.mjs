@@ -63,7 +63,7 @@ export const handler = async (event) => {
       return { key, label, size, contentType };
     }));
 
-    const subject = "Your Prime Dictation files";
+    const subject = "Prime Dictation";
     const recordingMeta = meta.find(m => m.label === "Recording");
     const transcriptionMeta = meta.find(m => m.label === "Transcription");
 
@@ -208,7 +208,7 @@ function renderEmailHtml({ links, hasAttachments }) {
     <tr><td align="center" style="padding:24px;">
       <table role="presentation" width="100%" style="max-width:560px;background:#fff;border-radius:14px;padding:24px;border:1px solid #e5e7eb;">
         <tr><td>
-          <h1 style="margin:0 0 10px 0;font-size:20px;line-height:1.3;color:#111827;">Your Prime Dictation files</h1>
+          <h1 style="margin:0 0 10px 0;font-size:20px;line-height:1.3;color:#111827;">Your Prime Dictation files are ready</h1>
           ${links?.length ? `<table role="presentation" width="100%" style="margin-top:8px;">${linkBlocks}</table>` : ``}
           ${footer}
         </td></tr>
