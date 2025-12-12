@@ -255,7 +255,8 @@ const headers = [
   `To: ${to}`,
   `Subject: ${subject}`,
   `Date: ${new Date().toUTCString()}`,
-  `Reply-To: support@${SENDER_DOMAIN}`,   // pass it in or compute
+  `Message-ID: <${randomId()}.${Date.now()}@${SENDER_DOMAIN}>`,
+  `Reply-To: support@${SENDER_DOMAIN}`,
   "MIME-Version: 1.0",
   `Content-Type: multipart/mixed; boundary="${boundaryMixed}"`,
 ];
