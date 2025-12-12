@@ -63,7 +63,7 @@ export const handler = async (event) => {
       return { key, label, size, contentType };
     }));
 
-    const subject = "Prime Dictation";
+    const subject = "Prime Dictation — your files are ready";
     const recordingMeta = meta.find(m => m.label === "Recording");
     const transcriptionMeta = meta.find(m => m.label === "Transcription");
 
@@ -106,9 +106,8 @@ export const handler = async (event) => {
               Key: key,
               // 👇 Force "download" behavior in browsers (esp. Safari)
               ResponseContentDisposition: `attachment; filename="${filename}"`,
-              ResponseContentType: 'application/octet-stream',
-              // If you prefer to keep the real MIME type instead:
-              // ResponseContentType: contentType,
+              // ResponseContentType: 'application/octet-stream', // For better browser download change, but sketchier for deliverability
+              ResponseContentType: contentType,
             }),
             { expiresIn: parseInt(DOWNLOAD_URL_TTL_SECONDS, 10) || 86400 }
           );
@@ -191,10 +190,15 @@ function renderEmailHtml({ links, hasAttachments }) {
     return `
       <tr>
         <td style="padding:8px 0;">
-          <div style="font-size:14px;color:#444;margin-bottom:6px;"><strong>${name}</strong> — ${file}</div>
-          <a href="${url}" style="display:inline-block;padding:10px 14px;text-decoration:none;background:#2563eb;color:#fff;border-radius:8px;font-size:14px;" target="_blank" rel="noopener">Download</a>
+          <div style="font-size:14px;color:#111827;margin-bottom:6px;">
+            <strong>${name}</strong> — ${file}
+          </div>
+          <div style="font-size:13px;line-height:1.4;color:#111827;word-break:break-all;">
+            <a href="${url}" rel="noopener">${url}</a>
+          </div>
         </td>
-      </tr>`;
+      </tr>
+    `;
   }).join("");
 
   const footer = hasAttachments
@@ -202,47 +206,59 @@ function renderEmailHtml({ links, hasAttachments }) {
     : `<p style="margin:10px 0 0 0;font-size:12px;color:#6b7280;">If a link expires, resend from the app to generate a fresh one.</p>`;
 
   return `<!doctype html>
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Prime Dictation</title></head>
-<body style="margin:0;padding:0;background:#f6f8fc;">
-  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
-    <tr><td align="center" style="padding:24px;">
-      <table role="presentation" width="100%" style="max-width:560px;background:#fff;border-radius:14px;padding:24px;border:1px solid #e5e7eb;">
-        <tr><td>
-          <h1 style="margin:0 0 10px 0;font-size:20px;line-height:1.3;color:#111827;">Your Prime Dictation files are ready</h1>
-          ${links?.length ? `<table role="presentation" width="100%" style="margin-top:8px;">${linkBlocks}</table>` : ``}
-          ${footer}
+    <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Prime Dictation</title></head>
+    <body style="margin:0;padding:0;background:#f6f8fc;">
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+        <tr><td align="center" style="padding:24px;">
+          <table role="presentation" width="100%" style="max-width:560px;background:#fff;border-radius:14px;padding:24px;border:1px solid #e5e7eb;">
+            <tr><td>
+              <h1 style="margin:0 0 10px 0;font-size:20px;line-height:1.3;color:#111827;">Your Prime Dictation files are ready</h1>
+              ${links?.length ? `<table role="presentation" width="100%" style="margin-top:8px;">${linkBlocks}</table>` : ``}
+              ${footer}
+            </td></tr>
+          </table>
+          <div style="margin-top:12px;font-size:11px;color:#9ca3af;">© ${new Date().getFullYear()} Prime Dictation</div>
         </td></tr>
       </table>
-      <div style="margin-top:12px;font-size:11px;color:#9ca3af;">© ${new Date().getFullYear()} Prime Dictation</div>
-    </td></tr>
-  </table>
-</body></html>`;
+    </body></html>`;
 }
-function renderEmailText({ links, hasAttachments }) {
-  const lines = [""];
+function renderEmailText({ links, hasAttachments, expiresInHours = 24 }) {
+  const lines = [];
+  lines.push("Your Prime Dictation files are ready.");
+  lines.push("");
+  lines.push("You’re receiving this because you chose Email export in the Prime Dictation app.");
+  lines.push("");
+
   if (links?.length) {
     lines.push("Downloads:");
-    for (const l of links) lines.push(`- ${l.label}: ${l.url}`);
+    for (const l of links) lines.push(`- ${l.label} (${filenameFromKey(l.key)}): ${l.url}`);
     lines.push("");
-    lines.push("If a link expires, resend from the app to generate a fresh one.");
+    lines.push(`Links expire in about ${expiresInHours} hours. If they expire, resend from the app.`);
   } else if (hasAttachments) {
     lines.push("Files are attached to this email.");
   }
+
+  lines.push("");
+  lines.push("Support: support@primedictation.com");
+  lines.push("— Prime Dictation");
   return lines.join("\n");
 }
+
 function escapeHtml(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;"); }
 
 function buildMimeMixed({ from, to, subject, text, html, attachments }) {
   const boundaryMixed = "mixed_" + randomId();
   const boundaryAlt   = "alt_" + randomId();
 
-  const headers = [
-    `From: ${from}`,
-    `To: ${to}`,
-    `Subject: ${subject}`,
-    "MIME-Version: 1.0",
-    `Content-Type: multipart/mixed; boundary="${boundaryMixed}"`,
-  ];
+const headers = [
+  `From: Prime Dictation <${from}>`,
+  `To: ${to}`,
+  `Subject: ${subject}`,
+  `Date: ${new Date().toUTCString()}`,
+  `Reply-To: support@${SENDER_DOMAIN}`,   // pass it in or compute
+  "MIME-Version: 1.0",
+  `Content-Type: multipart/mixed; boundary="${boundaryMixed}"`,
+];
 
   const altSection =
     `--${boundaryMixed}\r\nContent-Type: multipart/alternative; boundary="${boundaryAlt}"\r\n\r\n` +
